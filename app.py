@@ -4,6 +4,7 @@ app = Flask(__name__)
 
 # This list acts as our temporary "database". Each item is a dictionary representing a product.
 # It's in-memory, so every time the server restarts, we lose added/edited items.
+# mock database (array)
 inventory = [
     {
         "id": 1,
@@ -18,6 +19,20 @@ inventory = [
         "brand": "Nature's Own",
         "price": 3.49,
         "stock": 20
+    },
+    {
+        "id": 3,
+        "product_name": "Greek Yogurt",
+        "brand": "Chobani",
+        "price": 1.99,
+        "stock": 15
+    },
+    {
+        "id": 4,
+        "product_name": "Apple Juice",
+        "brand": "Tropicana",
+        "price": 2.49,
+        "stock": 12
     }
 ]
 
