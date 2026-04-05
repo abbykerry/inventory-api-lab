@@ -1,10 +1,9 @@
 from flask import Flask, jsonify, request
 
-# create the Flask app
 app = Flask(__name__)
 
-# this is just a temporary "database"
-# we're using a list of dictionaries instead of a real DB for now
+# This list acts as our temporary "database". Each item is a dictionary representing a product.
+# It's in-memory, so every time the server restarts, we lose added/edited items.
 inventory = [
     {
         "id": 1,
@@ -22,100 +21,108 @@ inventory = [
     }
 ]
 
-# basic route to check if server is running
+# Basic route to make sure the server is running. Useful for quick checks before hitting API endpoints.
 @app.route("/")
 def home():
-    return "Inventory API is running "
+    return "Inventory API is running"
 
-
-# GET all inventory items
-# just returns the whole list as JSON
+# Return the entire inventory list. This is how a client can see everything currently stored.
 @app.route("/inventory", methods=["GET"])
 def get_inventory():
     return jsonify(inventory)
 
-
-# GET a single item by its id
+# Fetch a single item by its ID. If it's not found, return a 404 error.
 @app.route("/inventory/<int:item_id>", methods=["GET"])
 def get_item(item_id):
-    # loop through inventory to find the matching item
     for item in inventory:
         if item["id"] == item_id:
             return jsonify(item)
+    # We return a 404 error if the item doesn't exist so the client knows their request failed.
+    return jsonify({"error": "item not found"}), 404
 
-    # if item not found, return an error message
-    return jsonify({"error": "item not found"}), 404   
-
-
-# POST - add a new item to the inventory
+# Add a new item to the inventory. Includes validation to make sure the input is correct.
 @app.route("/inventory", methods=["POST"])
 def add_item():
-    # get JSON data sent from the client (converted to Python dict)
-    data = request.get_json()
+    data = request.get_json()  # Convert incoming JSON payload to a Python dictionary
 
-    # create a new item using the data received
+    # Reject empty requests immediately
+    if not data:
+        return jsonify({"error": "no data provided"}), 400
+
+    # Define which fields are mandatory
+    required_fields = ["product_name", "brand", "price", "stock"]
+
+    # Make sure all required fields exist, otherwise give the user an error explaining which one is missing
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"{field} is required"}), 400
+
+    # Validate that price is a number and stock is an integer
+    if not isinstance(data["price"], (int, float)):
+        return jsonify({"error": "price must be a number"}), 400
+    if not isinstance(data["stock"], int):
+        return jsonify({"error": "stock must be an integer"}), 400
+
+    # Generate a new ID based on the current length of the list.
+    # Note: In a real database, the ID would be handled automatically.
     new_item = {
-        # simple way to generate an id (not perfect, but fine for now)
         "id": len(inventory) + 1,
-        "product_name": data.get("product_name"),
-        "brand": data.get("brand"),
-        "price": data.get("price"),
-        "stock": data.get("stock")
+        "product_name": data["product_name"],
+        "brand": data["brand"],
+        "price": data["price"],
+        "stock": data["stock"]
     }
 
-    # add the new item to our "database"
-    inventory.append(new_item)
+    inventory.append(new_item)  # Add the validated item to our inventory list
 
-    # return the created item with 201 status (created)
-    return jsonify(new_item), 201 
+    # Return the newly created item so the client can confirm it was added
+    return jsonify(new_item), 201
 
-# PATCH - update an existing item (partial update)
+# Update specific fields of an existing item. Allows partial updates.
 @app.route("/inventory/<int:item_id>", methods=["PATCH"])
 def update_item(item_id):
-    # get incoming data from client
     data = request.get_json()
+    if not data:
+        return jsonify({"error": "no data provided"}), 400
 
-    # find the item we want to update
+    # Find the item by ID
     for item in inventory:
         if item["id"] == item_id:
-
-            # update only fields that were sent
+            # Only update fields that are included in the request
             if "product_name" in data:
                 item["product_name"] = data["product_name"]
-
             if "brand" in data:
                 item["brand"] = data["brand"]
-
             if "price" in data:
+                if not isinstance(data["price"], (int, float)):
+                    return jsonify({"error": "price must be a number"}), 400
                 item["price"] = data["price"]
-
             if "stock" in data:
+                if not isinstance(data["stock"], int):
+                    return jsonify({"error": "stock must be an integer"}), 400
                 item["stock"] = data["stock"]
 
-            # return updated item
+            # Return the updated item so the client can see the new values
             return jsonify(item)
 
-    # if item not found
+    # If the item doesn't exist, let the client know
     return jsonify({"error": "item not found"}), 404
 
-# DELETE - remove an item from inventory
+# Delete an item from the inventory.
 @app.route("/inventory/<int:item_id>", methods=["DELETE"])
 def delete_item(item_id):
-    # loop using index so we can safely remove item
-    for i in range(len(inventory)):
-        if inventory[i]["id"] == item_id:
-            deleted_item = inventory.pop(i)  # remove item
-
-            # return what was deleted (useful for confirmation)
+    # Iterate with index so we can safely remove an item while looping
+    for index, item in enumerate(inventory):
+        if item["id"] == item_id:
+            # Pop removes the item from the list and gives us the removed item to return
+            removed_item = inventory.pop(index)
             return jsonify({
                 "message": "item deleted",
-                "item": deleted_item
+                "item": removed_item
             })
-
-    # if item not found
+    # If the item wasn't found, return a 404 so the client knows
     return jsonify({"error": "item not found"}), 404
 
-
-# run the app
 if __name__ == "__main__":
+    # Starts the Flask development server. Debug=True will reload automatically on changes.
     app.run(debug=True)
