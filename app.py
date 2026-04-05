@@ -69,6 +69,52 @@ def add_item():
     # return the created item with 201 status (created)
     return jsonify(new_item), 201 
 
+# PATCH - update an existing item (partial update)
+@app.route("/inventory/<int:item_id>", methods=["PATCH"])
+def update_item(item_id):
+    # get incoming data from client
+    data = request.get_json()
+
+    # find the item we want to update
+    for item in inventory:
+        if item["id"] == item_id:
+
+            # update only fields that were sent
+            if "product_name" in data:
+                item["product_name"] = data["product_name"]
+
+            if "brand" in data:
+                item["brand"] = data["brand"]
+
+            if "price" in data:
+                item["price"] = data["price"]
+
+            if "stock" in data:
+                item["stock"] = data["stock"]
+
+            # return updated item
+            return jsonify(item)
+
+    # if item not found
+    return jsonify({"error": "item not found"}), 404
+
+# DELETE - remove an item from inventory
+@app.route("/inventory/<int:item_id>", methods=["DELETE"])
+def delete_item(item_id):
+    # loop using index so we can safely remove item
+    for i in range(len(inventory)):
+        if inventory[i]["id"] == item_id:
+            deleted_item = inventory.pop(i)  # remove item
+
+            # return what was deleted (useful for confirmation)
+            return jsonify({
+                "message": "item deleted",
+                "item": deleted_item
+            })
+
+    # if item not found
+    return jsonify({"error": "item not found"}), 404
+
 
 # run the app
 if __name__ == "__main__":
